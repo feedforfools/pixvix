@@ -356,12 +356,35 @@ export function PixelCanvas({
       const y1 = Math.min(dragStart.y, dragCurrent.y);
       const x2 = Math.max(dragStart.x, dragCurrent.x);
       const y2 = Math.max(dragStart.y, dragCurrent.y);
+      const w = x2 - x1;
+      const h = y2 - y1;
 
-      ctx.strokeStyle = mode === "crop" ? "#ffffff" : "#ffff00";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-      ctx.setLineDash([]);
+      if (mode === "crop") {
+        // Use XOR composite for inverted colors that stand out on any background
+        ctx.save();
+        ctx.globalCompositeOperation = "difference";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // Add a second contrasting stroke for extra visibility
+        ctx.strokeStyle = "rgba(0, 255, 255, 0.8)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([8, 4]);
+        ctx.lineDashOffset = 4; // Offset to fill gaps
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
+      } else {
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(x1, y1, w, h);
+        ctx.setLineDash([]);
+      }
     }
 
     if (outputFrame) {
@@ -428,12 +451,10 @@ export function PixelCanvas({
     mode,
     cropRegion,
     outputFrame,
+    isDragging,
+    dragStart,
+    dragCurrent,
   ]);
-
-  // Calculate the transform style for zoom and pan
-  const getTransformStyle = () => {
-    return {};
-  };
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -549,6 +570,17 @@ export function PixelCanvas({
         setIsPanning(true);
         panStartRef.current = { x: e.clientX, y: e.clientY };
         lastPanOffsetRef.current = panOffset;
+        return;
+      }
+
+      // Left click for crop drag in crop mode
+      if (e.button === 0 && allowCropDrag) {
+        const rect = container.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        setIsDragging(true);
+        setDragStart({ x: screenX, y: screenY });
+        setDragCurrent({ x: screenX, y: screenY });
         return;
       }
 
@@ -807,16 +839,7 @@ export function PixelCanvas({
 
       {/* Zoom controls - bottom right corner */}
       {originalImage && (
-        <div className="absolute bottom-4 right-4 flex flex-col gap-1 bg-card/90 backdrop-blur-sm rounded-lg p-1 border border-border shadow-lg">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleZoomIn}
-            title="Zoom in"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="absolute bottom-4 right-4 flex flex-row gap-1 bg-card/90 backdrop-blur-sm rounded-lg p-1 border border-border shadow-lg">
           <Button
             variant="ghost"
             size="icon"
@@ -826,7 +849,16 @@ export function PixelCanvas({
           >
             <Minus className="h-4 w-4" />
           </Button>
-          <div className="h-px bg-border mx-1" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleZoomIn}
+            title="Zoom in"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <div className="w-px bg-border my-1" />
           <Button
             variant="ghost"
             size="icon"
@@ -845,10 +877,6 @@ export function PixelCanvas({
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
-          {/* Zoom level indicator */}
-          <div className="text-xs text-center text-muted-foreground py-1">
-            {Math.round(zoom * 100)}%
-          </div>
         </div>
       )}
     </div>

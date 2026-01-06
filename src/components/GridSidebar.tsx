@@ -23,6 +23,9 @@ export function GridSidebar({
   onBack,
   onNext,
 }: GridSidebarProps) {
+  // Max grid size is half the smallest dimension (min 1)
+  const maxGridSize = Math.max(1, Math.floor(Math.min(dimensions.width, dimensions.height) / 2));
+
   return (
     <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4 overflow-y-auto">
       {/* Info Section */}
@@ -59,7 +62,7 @@ export function GridSidebar({
             <Slider
               id="gridSize"
               min={1}
-              max={100}
+              max={maxGridSize}
               step={1}
               value={[gridConfig.gridSize]}
               onValueChange={([value]) =>
