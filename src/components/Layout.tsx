@@ -1,0 +1,334 @@
+import { useState, useCallback, useRef } from "react";
+import { StepIndicator } from "./StepIndicator";
+import { CropSidebar } from "./CropSidebar";
+import { GridSidebar } from "./GridSidebar";
+import { RefineSidebar } from "./RefineSidebar";
+import { ExportSidebar } from "./ExportSidebar";
+import { PixelCanvas } from "./PixelCanvas";
+import { useImageLoader } from "../hooks/useImageLoader";
+import {
+  sampleGrid,
+  getGridDimensions,
+  getMinimalBoundingFrame,
+} from "../core/gridSampler";
+import { generateSvg, downloadSvg } from "../core/svgGenerator";
+import type {
+  GridConfig,
+  WorkflowStep,
+  CropRegion,
+  OutputFrame,
+} from "../types";
+
+const DEFAULT_GRID_SIZE = 8;
+
+export function Layout() {
+  const { originalImage, dimensions, isLoading, error, loadImage } =
+    useImageLoader();
+
+  // Workflow state
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>("crop");
+  const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(
+    new Set()
+  );
+
+  // Crop state
+  const [cropRegion, setCropRegion] = useState<CropRegion | null>(null);
+  const [croppedImage, setCroppedImage] = useState<HTMLImageElement | null>(
+    null
+  );
+
+  // Grid state
+  const [gridConfig, setGridConfig] = useState<GridConfig>({
+    gridSize: DEFAULT_GRID_SIZE,
+    offsetX: 0,
+    offsetY: 0,
+  });
+
+  // Refine state
+  const [ignoredPixels, setIgnoredPixels] = useState<Set<string>>(new Set());
+  const [outputFrame, setOutputFrame] = useState<OutputFrame | null>(null);
+
+  // Ref to hidden canvas for cropping and export
+  const workCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Get the working image (cropped or original)
+  const workingImage = croppedImage || originalImage;
+  const workingDimensions = croppedImage
+    ? { width: croppedImage.naturalWidth, height: croppedImage.naturalHeight }
+    : dimensions;
+
+  // Calculate grid dimensions
+  const gridDimensions = workingImage
+    ? getGridDimensions(
+        workingImage.naturalWidth,
+        workingImage.naturalHeight,
+        gridConfig
+      )
+    : { cols: 0, rows: 0 };
+
+  // Calculate ignored pixels within the output frame
+  const ignoredInFrame = (() => {
+    if (!outputFrame) return ignoredPixels.size;
+    let count = 0;
+    for (const key of ignoredPixels) {
+      const [col, row] = key.split("-").map(Number);
+      if (
+        col >= outputFrame.startCol &&
+        col <= outputFrame.endCol &&
+        row >= outputFrame.startRow &&
+        row <= outputFrame.endRow
+      ) {
+        count++;
+      }
+    }
+    return count;
+  })();
+
+  // Handlers
+  const handleGridConfigChange = useCallback((partial: Partial<GridConfig>) => {
+    setGridConfig((prev) => {
+      const newConfig = { ...prev, ...partial };
+      if (partial.gridSize !== undefined) {
+        newConfig.offsetX = Math.min(prev.offsetX, partial.gridSize - 1);
+        newConfig.offsetY = Math.min(prev.offsetY, partial.gridSize - 1);
+      }
+      return newConfig;
+    });
+    // Clear output frame when grid changes
+    setOutputFrame(null);
+  }, []);
+
+  const handleTogglePixel = useCallback((key: string) => {
+    setIgnoredPixels((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleImageLoad = useCallback(
+    (file: File) => {
+      // Reset all state on new image
+      setCropRegion(null);
+      setCroppedImage(null);
+      setGridConfig({
+        gridSize: DEFAULT_GRID_SIZE,
+        offsetX: 0,
+        offsetY: 0,
+      });
+      setIgnoredPixels(new Set());
+      setOutputFrame(null);
+      setCompletedSteps(new Set());
+      setCurrentStep("crop");
+      loadImage(file);
+    },
+    [loadImage]
+  );
+
+  const handleResetCrop = useCallback(() => {
+    setCropRegion(null);
+  }, []);
+
+  const handleCropChange = useCallback((crop: CropRegion | null) => {
+    setCropRegion(crop);
+  }, []);
+
+  const handleClearIgnored = useCallback(() => {
+    setIgnoredPixels(new Set());
+  }, []);
+
+  const handleResetOutputFrame = useCallback(() => {
+    setOutputFrame(null);
+  }, []);
+
+  const handleAutoFitFrame = useCallback(() => {
+    const frame = getMinimalBoundingFrame(
+      gridDimensions.cols,
+      gridDimensions.rows,
+      ignoredPixels
+    );
+    setOutputFrame(frame);
+  }, [gridDimensions.cols, gridDimensions.rows, ignoredPixels]);
+
+  // Apply crop and move to grid step
+  const applyCropAndContinue = useCallback(() => {
+    if (!originalImage) return;
+
+    if (cropRegion) {
+      const canvas = workCanvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Set canvas to crop size
+      canvas.width = cropRegion.width;
+      canvas.height = cropRegion.height;
+
+      // Draw cropped region
+      ctx.drawImage(
+        originalImage,
+        cropRegion.x,
+        cropRegion.y,
+        cropRegion.width,
+        cropRegion.height,
+        0,
+        0,
+        cropRegion.width,
+        cropRegion.height
+      );
+
+      // Create new image from cropped canvas
+      const croppedDataUrl = canvas.toDataURL();
+      const img = new Image();
+      img.onload = () => {
+        setCroppedImage(img);
+        setCompletedSteps((prev) => new Set([...prev, "crop"]));
+        setCurrentStep("grid");
+      };
+      img.src = croppedDataUrl;
+    } else {
+      // No crop, just proceed
+      setCompletedSteps((prev) => new Set([...prev, "crop"]));
+      setCurrentStep("grid");
+    }
+  }, [originalImage, cropRegion]);
+
+  const handleExport = useCallback(() => {
+    if (!workingImage) return;
+
+    const canvas = workCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const { naturalWidth, naturalHeight } = workingImage;
+    canvas.width = naturalWidth;
+    canvas.height = naturalHeight;
+    ctx.drawImage(workingImage, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, naturalWidth, naturalHeight);
+    const colors = sampleGrid(imageData, gridConfig);
+
+    const svg = generateSvg(
+      colors,
+      gridConfig,
+      naturalWidth,
+      naturalHeight,
+      ignoredPixels,
+      outputFrame
+    );
+    downloadSvg(svg, "pixvix-export.svg");
+  }, [workingImage, gridConfig, ignoredPixels, outputFrame]);
+
+  // Step navigation
+  const handleStepClick = useCallback((step: WorkflowStep) => {
+    setCurrentStep(step);
+  }, []);
+
+  const goToStep = useCallback(
+    (step: WorkflowStep, markCompleted?: WorkflowStep) => {
+      if (markCompleted) {
+        setCompletedSteps((prev) => new Set([...prev, markCompleted]));
+      }
+      setCurrentStep(step);
+    },
+    []
+  );
+
+  // Render sidebar based on current step
+  const renderSidebar = () => {
+    switch (currentStep) {
+      case "crop":
+        return (
+          <CropSidebar
+            onImageLoad={handleImageLoad}
+            isLoading={isLoading}
+            error={error}
+            dimensions={dimensions}
+            hasImage={originalImage !== null}
+            cropRegion={cropRegion}
+            onResetCrop={handleResetCrop}
+            onNext={applyCropAndContinue}
+          />
+        );
+      case "grid":
+        return (
+          <GridSidebar
+            dimensions={workingDimensions}
+            gridConfig={gridConfig}
+            onGridConfigChange={handleGridConfigChange}
+            gridDimensions={gridDimensions}
+            onBack={() => goToStep("crop")}
+            onNext={() => goToStep("refine", "grid")}
+          />
+        );
+      case "refine":
+        return (
+          <RefineSidebar
+            gridDimensions={gridDimensions}
+            ignoredCount={ignoredPixels.size}
+            outputFrame={outputFrame}
+            onAutoFitFrame={handleAutoFitFrame}
+            onClearIgnored={handleClearIgnored}
+            onResetOutputFrame={handleResetOutputFrame}
+            onBack={() => goToStep("grid")}
+            onNext={() => goToStep("export", "refine")}
+          />
+        );
+      case "export":
+        return (
+          <ExportSidebar
+            gridDimensions={gridDimensions}
+            outputFrame={outputFrame}
+            ignoredCount={ignoredPixels.size}
+            ignoredInFrame={ignoredInFrame}
+            onExport={handleExport}
+            onBack={() => goToStep("refine")}
+          />
+        );
+    }
+  };
+
+  // Determine which image to show based on step
+  const canvasImage = currentStep === "crop" ? originalImage : workingImage;
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
+      {/* Hidden canvas for cropping and export */}
+      <canvas ref={workCanvasRef} className="hidden" />
+
+      {/* Step indicator */}
+      <StepIndicator
+        currentStep={currentStep}
+        onStepClick={handleStepClick}
+        completedSteps={completedSteps}
+        disabled={!originalImage}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        {renderSidebar()}
+
+        {/* Workspace Area */}
+        <main className="flex-1 overflow-hidden">
+          <PixelCanvas
+            originalImage={canvasImage}
+            gridConfig={gridConfig}
+            ignoredPixels={ignoredPixels}
+            onTogglePixel={handleTogglePixel}
+            mode={currentStep}
+            cropRegion={cropRegion}
+            onCropChange={handleCropChange}
+            outputFrame={outputFrame}
+          />
+        </main>
+      </div>
+    </div>
+  );
+}
