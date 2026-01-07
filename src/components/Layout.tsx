@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { StepIndicator } from "./StepIndicator";
 import { CropSidebar } from "./CropSidebar";
 import { GridSidebar } from "./GridSidebar";
@@ -17,6 +17,7 @@ import type {
   WorkflowStep,
   CropRegion,
   OutputFrame,
+  PixelColor,
 } from "../types";
 
 const DEFAULT_GRID_SIZE = 8;
@@ -47,6 +48,9 @@ export function Layout() {
   // Refine state
   const [ignoredPixels, setIgnoredPixels] = useState<Set<string>>(new Set());
   const [outputFrame, setOutputFrame] = useState<OutputFrame | null>(null);
+  const [sampledColors, setSampledColors] = useState<
+    (PixelColor | null)[][] | null
+  >(null);
 
   // Ref to hidden canvas for cropping and export
   const workCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,6 +69,60 @@ export function Layout() {
         gridConfig
       )
     : { cols: 0, rows: 0 };
+
+  // Sample colors whenever working image or grid config changes
+  useEffect(() => {
+    if (!workingImage) {
+      setSampledColors(null);
+      return;
+    }
+
+    const canvas = workCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const { naturalWidth, naturalHeight } = workingImage;
+    canvas.width = naturalWidth;
+    canvas.height = naturalHeight;
+    ctx.drawImage(workingImage, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, naturalWidth, naturalHeight);
+    const colors = sampleGrid(imageData, gridConfig);
+    setSampledColors(colors);
+  }, [workingImage, gridConfig]);
+
+  // Count originally transparent pixels (alpha = 0)
+  const originallyTransparentCount = (() => {
+    if (!sampledColors) return 0;
+    let count = 0;
+    for (let row = 0; row < sampledColors.length; row++) {
+      for (let col = 0; col < sampledColors[row].length; col++) {
+        const color = sampledColors[row][col];
+        if (color === null || color.a === 0) {
+          count++;
+        }
+      }
+    }
+    return count;
+  })();
+
+  // Total transparent = user-toggled + originally transparent (excluding overlap)
+  const totalTransparentCount = (() => {
+    if (!sampledColors) return ignoredPixels.size;
+    let count = originallyTransparentCount;
+    // Add user-toggled pixels that aren't originally transparent
+    for (const key of ignoredPixels) {
+      const [col, row] = key.split("-").map(Number);
+      const color = sampledColors[row]?.[col];
+      // Only count if not already originally transparent
+      if (color !== null && color !== undefined && color.a !== 0) {
+        count++;
+      }
+    }
+    return count;
+  })();
 
   // Calculate ignored pixels within the output frame
   const ignoredInFrame = (() => {
@@ -122,6 +180,7 @@ export function Layout() {
       });
       setIgnoredPixels(new Set());
       setOutputFrame(null);
+      setSampledColors(null);
       setCompletedSteps(new Set());
       setCurrentStep("crop");
       loadImage(file);
@@ -146,13 +205,36 @@ export function Layout() {
   }, []);
 
   const handleAutoFitFrame = useCallback(() => {
+    if (!workingImage) return;
+
+    const canvas = workCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const { naturalWidth, naturalHeight } = workingImage;
+    canvas.width = naturalWidth;
+    canvas.height = naturalHeight;
+    ctx.drawImage(workingImage, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, naturalWidth, naturalHeight);
+    const colors = sampleGrid(imageData, gridConfig);
+
     const frame = getMinimalBoundingFrame(
       gridDimensions.cols,
       gridDimensions.rows,
-      ignoredPixels
+      ignoredPixels,
+      colors
     );
     setOutputFrame(frame);
-  }, [gridDimensions.cols, gridDimensions.rows, ignoredPixels]);
+  }, [
+    workingImage,
+    gridConfig,
+    gridDimensions.cols,
+    gridDimensions.rows,
+    ignoredPixels,
+  ]);
 
   // Apply crop and move to grid step
   const applyCropAndContinue = useCallback(() => {
@@ -272,7 +354,7 @@ export function Layout() {
         return (
           <RefineSidebar
             gridDimensions={gridDimensions}
-            ignoredCount={ignoredPixels.size}
+            ignoredCount={totalTransparentCount}
             outputFrame={outputFrame}
             onAutoFitFrame={handleAutoFitFrame}
             onClearIgnored={handleClearIgnored}
@@ -326,6 +408,7 @@ export function Layout() {
             cropRegion={cropRegion}
             onCropChange={handleCropChange}
             outputFrame={outputFrame}
+            sampledColors={sampledColors}
           />
         </main>
       </div>

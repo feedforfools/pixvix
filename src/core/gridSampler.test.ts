@@ -5,8 +5,10 @@ import {
   getPixelColor,
   colorToRgba,
   colorToHex,
+  isPixelTransparent,
+  getMinimalBoundingFrame,
 } from "./gridSampler";
-import type { GridConfig } from "../types";
+import type { GridConfig, PixelColor } from "../types";
 
 // Mock ImageData for Node.js environment
 function createMockImageData(
@@ -151,6 +153,133 @@ describe("gridSampler", () => {
 
     it("pads single-digit hex values", () => {
       expect(colorToHex({ r: 0, g: 15, b: 10, a: 255 })).toBe("#000f0a");
+    });
+  });
+
+  describe("isPixelTransparent", () => {
+    const opaquePixel: PixelColor = { r: 255, g: 0, b: 0, a: 255 };
+    const transparentPixel: PixelColor = { r: 255, g: 0, b: 0, a: 0 };
+
+    it("returns true for pixels in ignoredPixels set", () => {
+      const colors: (PixelColor | null)[][] = [[opaquePixel]];
+      const ignored = new Set(["0-0"]);
+      expect(isPixelTransparent(0, 0, colors, ignored)).toBe(true);
+    });
+
+    it("returns true for pixels with alpha = 0", () => {
+      const colors: (PixelColor | null)[][] = [[transparentPixel]];
+      const ignored = new Set<string>();
+      expect(isPixelTransparent(0, 0, colors, ignored)).toBe(true);
+    });
+
+    it("returns true for null pixels in color array", () => {
+      const colors: (PixelColor | null)[][] = [[null]];
+      const ignored = new Set<string>();
+      expect(isPixelTransparent(0, 0, colors, ignored)).toBe(true);
+    });
+
+    it("returns false for opaque non-ignored pixels", () => {
+      const colors: (PixelColor | null)[][] = [[opaquePixel]];
+      const ignored = new Set<string>();
+      expect(isPixelTransparent(0, 0, colors, ignored)).toBe(false);
+    });
+
+    it("works without color data (legacy behavior)", () => {
+      const ignored = new Set(["0-0"]);
+      expect(isPixelTransparent(0, 0, null, ignored)).toBe(true);
+      expect(isPixelTransparent(1, 0, null, ignored)).toBe(false);
+    });
+  });
+
+  describe("getMinimalBoundingFrame", () => {
+    const opaque: PixelColor = { r: 255, g: 0, b: 0, a: 255 };
+    const transparent: PixelColor = { r: 0, g: 0, b: 0, a: 0 };
+
+    it("returns bounds excluding ignored pixels", () => {
+      // 3x3 grid, middle pixel ignored
+      const colors: (PixelColor | null)[][] = [
+        [opaque, opaque, opaque],
+        [opaque, opaque, opaque],
+        [opaque, opaque, opaque],
+      ];
+      const ignored = new Set(["0-0", "2-0", "0-2", "2-2"]); // corners ignored
+
+      const frame = getMinimalBoundingFrame(3, 3, ignored, colors);
+      expect(frame).toEqual({
+        startCol: 0,
+        startRow: 0,
+        endCol: 2,
+        endRow: 2,
+      });
+    });
+
+    it("returns bounds excluding originally transparent pixels", () => {
+      // 4x4 grid with transparent border
+      const colors: (PixelColor | null)[][] = [
+        [transparent, transparent, transparent, transparent],
+        [transparent, opaque, opaque, transparent],
+        [transparent, opaque, opaque, transparent],
+        [transparent, transparent, transparent, transparent],
+      ];
+      const ignored = new Set<string>();
+
+      const frame = getMinimalBoundingFrame(4, 4, ignored, colors);
+      expect(frame).toEqual({
+        startCol: 1,
+        startRow: 1,
+        endCol: 2,
+        endRow: 2,
+      });
+    });
+
+    it("handles L-shaped content with transparent corners", () => {
+      const colors: (PixelColor | null)[][] = [
+        [opaque, transparent, transparent],
+        [opaque, transparent, transparent],
+        [opaque, opaque, opaque],
+      ];
+      const ignored = new Set<string>();
+
+      const frame = getMinimalBoundingFrame(3, 3, ignored, colors);
+      expect(frame).toEqual({
+        startCol: 0,
+        startRow: 0,
+        endCol: 2,
+        endRow: 2,
+      });
+    });
+
+    it("returns null when all pixels are transparent", () => {
+      const colors: (PixelColor | null)[][] = [
+        [transparent, transparent],
+        [transparent, transparent],
+      ];
+      const ignored = new Set<string>();
+
+      const frame = getMinimalBoundingFrame(2, 2, ignored, colors);
+      expect(frame).toBeNull();
+    });
+
+    it("returns null when all pixels are ignored", () => {
+      const colors: (PixelColor | null)[][] = [
+        [opaque, opaque],
+        [opaque, opaque],
+      ];
+      const ignored = new Set(["0-0", "1-0", "0-1", "1-1"]);
+
+      const frame = getMinimalBoundingFrame(2, 2, ignored, colors);
+      expect(frame).toBeNull();
+    });
+
+    it("works without color data (legacy behavior)", () => {
+      const ignored = new Set(["0-0", "2-0"]);
+      const frame = getMinimalBoundingFrame(3, 1, ignored);
+      expect(frame).toEqual({
+        startCol: 1,
+        startRow: 0,
+        endCol: 1,
+        endRow: 0,
+      });
     });
   });
 });

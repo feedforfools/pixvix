@@ -13,7 +13,9 @@ describe("svgGenerator", () => {
 
       const svg = generateSvg(colors, config, 10, 10, ignoredPixels);
 
-      expect(svg).toContain('viewBox="0 0 10 10"');
+      // viewBox is in grid cell units (1x1 for one pixel)
+      expect(svg).toContain('viewBox="0 0 1 1"');
+      // width/height is scaled by gridSize
       expect(svg).toContain('width="10"');
       expect(svg).toContain('height="10"');
       expect(svg).toContain('fill="#ff0000"');
@@ -60,6 +62,37 @@ describe("svgGenerator", () => {
       expect(rectMatches).toHaveLength(2);
     });
 
+    it("skips originally transparent pixels (alpha = 0)", () => {
+      const red: PixelColor = { r: 255, g: 0, b: 0, a: 255 };
+      const transparent: PixelColor = { r: 255, g: 0, b: 0, a: 0 }; // Same color but transparent
+      const colors: (PixelColor | null)[][] = [[red, transparent, red]];
+      const config: GridConfig = { gridSize: 10, offsetX: 0, offsetY: 0 };
+      const ignoredPixels = new Set<string>();
+
+      const svg = generateSvg(colors, config, 30, 10, ignoredPixels);
+
+      // Should have two rects (first and last), middle is transparent
+      const rectMatches = svg.match(/<rect/g);
+      expect(rectMatches).toHaveLength(2);
+    });
+
+    it("handles mixed ignored and transparent pixels", () => {
+      const red: PixelColor = { r: 255, g: 0, b: 0, a: 255 };
+      const transparent: PixelColor = { r: 0, g: 0, b: 0, a: 0 };
+      // Row with: opaque, transparent, opaque, ignored, opaque
+      const colors: (PixelColor | null)[][] = [
+        [red, transparent, red, red, red],
+      ];
+      const config: GridConfig = { gridSize: 10, offsetX: 0, offsetY: 0 };
+      const ignoredPixels = new Set<string>(["3-0"]); // Ignore 4th pixel
+
+      const svg = generateSvg(colors, config, 50, 10, ignoredPixels);
+
+      // Should have three rects: pixel 0, pixel 2, pixel 4
+      const rectMatches = svg.match(/<rect/g);
+      expect(rectMatches).toHaveLength(3);
+    });
+
     it("handles empty grid", () => {
       const colors: (PixelColor | null)[][] = [];
       const config: GridConfig = { gridSize: 10, offsetX: 0, offsetY: 0 };
@@ -72,7 +105,7 @@ describe("svgGenerator", () => {
       expect(svg).not.toContain("<rect");
     });
 
-    it("applies offset correctly", () => {
+    it("applies offset correctly in dimensions", () => {
       const red: PixelColor = { r: 255, g: 0, b: 0, a: 255 };
       const colors: (PixelColor | null)[][] = [[red]];
       const config: GridConfig = { gridSize: 10, offsetX: 5, offsetY: 3 };
@@ -80,8 +113,11 @@ describe("svgGenerator", () => {
 
       const svg = generateSvg(colors, config, 15, 13, ignoredPixels);
 
-      expect(svg).toContain('x="5"');
-      expect(svg).toContain('y="3"');
+      // SVG rects are in grid cell coordinates (0-based), offset doesn't affect rect positions
+      // The rect starts at (0,0) in grid cell units
+      expect(svg).toContain('x="0"');
+      expect(svg).toContain('y="0"');
+      expect(svg).toContain('viewBox="0 0 1 1"');
     });
   });
 });

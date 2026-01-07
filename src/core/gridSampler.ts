@@ -96,13 +96,37 @@ export function sampleGrid(
 }
 
 /**
+ * Check if a pixel should be treated as transparent.
+ * A pixel is transparent if it's in the ignoredPixels set OR has alpha = 0.
+ */
+export function isPixelTransparent(
+  col: number,
+  row: number,
+  colors: (PixelColor | null)[][] | null,
+  ignoredPixels: Set<string>
+): boolean {
+  const key = `${col}-${row}`;
+  if (ignoredPixels.has(key)) return true;
+
+  // Check if originally transparent (alpha = 0)
+  if (colors) {
+    const color = colors[row]?.[col];
+    if (color === null || color.a === 0) return true;
+  }
+
+  return false;
+}
+
+/**
  * Calculate the minimal bounding box that contains all non-ignored pixels.
- * Returns null if all pixels are ignored.
+ * A pixel is considered ignored if it's in ignoredPixels OR has alpha = 0.
+ * Returns null if all pixels are ignored/transparent.
  */
 export function getMinimalBoundingFrame(
   cols: number,
   rows: number,
-  ignoredPixels: Set<string>
+  ignoredPixels: Set<string>,
+  colors?: (PixelColor | null)[][] | null
 ): {
   startCol: number;
   startRow: number;
@@ -116,8 +140,7 @@ export function getMinimalBoundingFrame(
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const key = `${col}-${row}`;
-      if (!ignoredPixels.has(key)) {
+      if (!isPixelTransparent(col, row, colors ?? null, ignoredPixels)) {
         if (col < minCol) minCol = col;
         if (col > maxCol) maxCol = col;
         if (row < minRow) minRow = row;

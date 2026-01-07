@@ -1,4 +1,10 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useState,
+} from "react";
 import { Plus, Minus, RotateCcw, Maximize2 } from "lucide-react";
 import { Button } from "./ui/button";
 import type {
@@ -6,6 +12,7 @@ import type {
   CropRegion,
   OutputFrame,
   WorkflowStep,
+  PixelColor,
 } from "../types";
 import {
   getGridDimensions,
@@ -23,6 +30,7 @@ interface PixelCanvasProps {
   cropRegion: CropRegion | null;
   onCropChange: (crop: CropRegion | null) => void;
   outputFrame: OutputFrame | null;
+  sampledColors: (PixelColor | null)[][] | null;
 }
 
 /** Zoom constraints */
@@ -53,6 +61,7 @@ export function PixelCanvas({
   cropRegion,
   onCropChange,
   outputFrame,
+  sampledColors,
 }: PixelCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -120,7 +129,8 @@ export function PixelCanvas({
   }, []);
 
   // Calculate fit zoom and reset when image changes
-  useEffect(() => {
+  // Using useLayoutEffect to run synchronously before paint, avoiding visual flicker
+  useLayoutEffect(() => {
     if (
       !originalImage ||
       containerSize.width === 0 ||
@@ -146,7 +156,8 @@ export function PixelCanvas({
 
     setZoom(clampedZoom);
     setPanOffset({ x: 0, y: 0 });
-  }, [originalImage, containerSize.width, containerSize.height]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originalImage]);
 
   // Track container size for grid overlay
   useEffect(() => {
@@ -592,6 +603,16 @@ export function PixelCanvas({
         const cell = screenToGridCell(screenX, screenY);
 
         if (cell) {
+          // Skip if pixel is originally transparent (alpha = 0)
+          const originalColor = sampledColors?.[cell.row]?.[cell.col];
+          if (
+            originalColor === null ||
+            originalColor === undefined ||
+            originalColor.a === 0
+          ) {
+            return;
+          }
+
           const key = getCellKey(cell.col, cell.row);
           // Determine mode: if pixel is currently visible, we're adding to ignored (removing pixel)
           // if pixel is ignored, we're removing from ignored (restoring pixel)
@@ -612,6 +633,7 @@ export function PixelCanvas({
       screenToGridCell,
       ignoredPixels,
       onTogglePixel,
+      sampledColors,
     ]
   );
 
@@ -638,6 +660,16 @@ export function PixelCanvas({
         const cell = screenToGridCell(screenX, screenY);
 
         if (cell) {
+          // Skip if pixel is originally transparent (alpha = 0)
+          const originalColor = sampledColors?.[cell.row]?.[cell.col];
+          if (
+            originalColor === null ||
+            originalColor === undefined ||
+            originalColor.a === 0
+          ) {
+            return;
+          }
+
           const key = getCellKey(cell.col, cell.row);
           // Only toggle if we haven't already toggled this pixel in this drag
           if (!toggledPixelsRef.current.has(key)) {
@@ -668,6 +700,7 @@ export function PixelCanvas({
       screenToGridCell,
       ignoredPixels,
       onTogglePixel,
+      sampledColors,
     ]
   );
 
@@ -731,7 +764,7 @@ export function PixelCanvas({
     dragStart,
     dragCurrent,
     originalImage,
-    gridConfig,
+
     containerSize,
     panOffset,
     zoom,
@@ -740,12 +773,9 @@ export function PixelCanvas({
   ]);
 
   // Canvas click is now handled by mouseDown/mouseUp for drag support
-  const handleCanvasClick = useCallback(
-    (_e: React.MouseEvent<HTMLCanvasElement>) => {
-      // Pixel toggle is handled by drag handlers now
-    },
-    []
-  );
+  const handleCanvasClick = useCallback(() => {
+    // Pixel toggle is handled by drag handlers now
+  }, []);
 
   // Prevent context menu on middle click
   const handleContextMenu = useCallback((e: React.MouseEvent) => {

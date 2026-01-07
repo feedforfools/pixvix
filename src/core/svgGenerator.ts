@@ -47,7 +47,9 @@ export function generateSvg(
       const key = `${col}-${row}`;
       const isIgnored = ignoredPixels.has(key);
       const color = col <= endCol && !isIgnored ? rowColors[col] : null;
-      const hexColor = color ? colorToHex(color) : null;
+      // Treat fully transparent pixels as ignored (alpha = 0 means originally transparent)
+      const isTransparent = color !== null && color.a === 0;
+      const hexColor = color && !isTransparent ? colorToHex(color) : null;
 
       // Check if we should end the current run
       if (hexColor !== runColor) {
