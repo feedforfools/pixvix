@@ -97,7 +97,10 @@ export function PixelCanvas({
 
   // Determine what to show based on mode
   const showGrid = mode === "grid" || mode === "refine";
-  const showPreview = mode === "refine" || mode === "export" || (mode === "grid" && showGridPreview);
+  const showPreview =
+    mode === "refine" ||
+    mode === "export" ||
+    (mode === "grid" && showGridPreview);
   const allowPixelToggle = mode === "refine";
   const allowCropDrag = mode === "crop";
 
@@ -245,7 +248,14 @@ export function PixelCanvas({
     } else {
       displayCtx.drawImage(originalImage, 0, 0);
     }
-  }, [originalImage, gridConfig, showPreview, ignoredPixels, mode, showGridPreview]);
+  }, [
+    originalImage,
+    gridConfig,
+    showPreview,
+    ignoredPixels,
+    mode,
+    showGridPreview,
+  ]);
 
   // Draw overlay at screen resolution (grid, crop region, output frame)
   useEffect(() => {
@@ -875,39 +885,40 @@ export function PixelCanvas({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={handleZoomOut}
-            title="Zoom out"
+            className="h-9 w-9"
+            onClick={handleCenter}
+            title="Center image"
           >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleZoomIn}
-            title="Zoom in"
-          >
-            <ZoomIn className="h-4 w-4" />
+            <Maximize className="size-5" />
           </Button>
           <div className="w-px bg-border my-1" />
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
-            onClick={handleCenter}
-            title="Center image"
+            className="h-9 w-9"
+            onClick={handleZoomIn}
+            title="Zoom in"
           >
-            <Maximize className="h-4 w-4" />
+            <ZoomIn className="size-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-9 w-9"
+            onClick={handleZoomOut}
+            title="Zoom out"
+          >
+            <ZoomOut className="size-5" />
+          </Button>
+          <div className="w-px bg-border my-1" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
             onClick={handleZoomReset}
             title="Reset zoom"
           >
-            <Minimize className="h-4 w-4" />
+            <Minimize className="size-5" />
           </Button>
         </div>
       )}

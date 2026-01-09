@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { StepIndicator } from "./StepIndicator";
 import { CropSidebar } from "./CropSidebar";
 import { GridSidebar } from "./GridSidebar";
@@ -48,9 +48,6 @@ export function Layout() {
   // Refine state
   const [ignoredPixels, setIgnoredPixels] = useState<Set<string>>(new Set());
   const [outputFrame, setOutputFrame] = useState<OutputFrame | null>(null);
-  const [sampledColors, setSampledColors] = useState<
-    (PixelColor | null)[][] | null
-  >(null);
 
   // Grid preview state
   const [showGridPreview, setShowGridPreview] = useState(false);
@@ -74,17 +71,15 @@ export function Layout() {
     : { cols: 0, rows: 0 };
 
   // Sample colors whenever working image or grid config changes
-  useEffect(() => {
+  const sampledColors = useMemo((): (PixelColor | null)[][] | null => {
     if (!workingImage) {
-      setSampledColors(null);
-      return;
+      return null;
     }
 
-    const canvas = workCanvasRef.current;
-    if (!canvas) return;
-
+    // Create a temporary canvas for sampling
+    const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return null;
 
     const { naturalWidth, naturalHeight } = workingImage;
     canvas.width = naturalWidth;
@@ -92,8 +87,7 @@ export function Layout() {
     ctx.drawImage(workingImage, 0, 0);
 
     const imageData = ctx.getImageData(0, 0, naturalWidth, naturalHeight);
-    const colors = sampleGrid(imageData, gridConfig);
-    setSampledColors(colors);
+    return sampleGrid(imageData, gridConfig);
   }, [workingImage, gridConfig]);
 
   // Count originally transparent pixels (alpha = 0)
@@ -183,7 +177,6 @@ export function Layout() {
       });
       setIgnoredPixels(new Set());
       setOutputFrame(null);
-      setSampledColors(null);
       setShowGridPreview(false);
       setCompletedSteps(new Set());
       setCurrentStep("crop");
