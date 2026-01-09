@@ -1,75 +1,88 @@
-# React + TypeScript + Vite
+# pixvix
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A browser-based pixel art to SVG converter. No server uploads—everything runs locally in your browser.
 
-Currently, two official plugins are available:
+## 🚀 Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Run Locally
+```bash
+git clone https://github.com/YOUR_USERNAME/pixvix.git
+cd pixvix
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 📖 Usage
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Upload** — Drop or select a pixel art image (PNG recommended)
+2. **Crop** *(optional)* — Select a region to process
+3. **Grid** — Adjust grid size and offset to align with pixel boundaries
+4. **Refine** — Click pixels to mark as transparent, set output bounds
+5. **Export** — Download the generated SVG or PNG
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🛠 Development
+
+```bash
+npm install          # Install dependencies
+npm run dev          # Start dev server at localhost:5173
+npm run build        # Production build
+npm run lint         # ESLint check
+npm test             # Run tests once
+npm run test:watch   # Run tests in watch mode
+```
+
+### Project Structure
+
+```
+src/
+  components/    # React UI components
+    ui/          # shadcn primitives (don't modify)
+  core/          # Pure functions — NO React, NO side effects
+    gridSampler.ts       # Grid math and pixel sampling
+    gridSampler.test.ts  # Tests for grid sampling
+    svgGenerator.ts      # SVG/PNG generation with row-merge optimization
+    svgGenerator.test.ts # Tests for SVG generation
+    fileHelpers.ts       # File reading utilities
+    fileHelpers.test.ts  # Tests for file helpers
+  hooks/         # React hooks for state management
+  types/         # TypeScript interfaces
+```
+
+### Testing
+
+Tests are written with [Vitest](https://vitest.dev/) and focus on the core algorithms:
+
+- **Grid sampling** — Cell center calculation, grid dimensions, pixel color extraction
+- **SVG generation** — Row merging, transparency handling, output frame bounds
+- **File helpers** — Image file validation
+
+Tests run automatically before deployment via GitHub Actions. Any test failure will block the deploy.
+
+```bash
+npm test             # Run all tests
+npm run test:watch   # Watch mode for development
+```
+
+## 🏗 Tech Stack
+
+- **React 19** + TypeScript + Vite
+- **shadcn/ui** (Radix Primitives + Tailwind CSS)
+- **HTML5 Canvas API** for image processing
+- **Vitest** for testing
+- **GitHub Pages** for deployment
+
+## 📐 Architecture
+
+### Dual Canvas Pattern
+
+Two canvas refs in `PixelCanvas.tsx`:
+- `sourceCanvasRef` (hidden) — Original image at native resolution for `getImageData()` reads
+- `displayCanvasRef` (visible) — User-facing canvas with CSS `image-rendering: pixelated`
+
+### SVG Row Merging
+
+Adjacent same-color pixels are merged into single `<rect>` elements to minimize file size:
+
+```
+[red][red][red][blue][blue] → <rect width="3" fill="red"/> <rect width="2" fill="blue"/>
 ```
