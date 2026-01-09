@@ -52,6 +52,9 @@ export function Layout() {
     (PixelColor | null)[][] | null
   >(null);
 
+  // Grid preview state
+  const [showGridPreview, setShowGridPreview] = useState(false);
+
   // Ref to hidden canvas for cropping and export
   const workCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -181,6 +184,7 @@ export function Layout() {
       setIgnoredPixels(new Set());
       setOutputFrame(null);
       setSampledColors(null);
+      setShowGridPreview(false);
       setCompletedSteps(new Set());
       setCurrentStep("crop");
       loadImage(file);
@@ -346,6 +350,8 @@ export function Layout() {
             gridConfig={gridConfig}
             onGridConfigChange={handleGridConfigChange}
             gridDimensions={gridDimensions}
+            showPreview={showGridPreview}
+            onShowPreviewChange={setShowGridPreview}
             onBack={() => goToStep("crop")}
             onNext={() => goToStep("refine", "grid")}
           />
@@ -409,6 +415,7 @@ export function Layout() {
             onCropChange={handleCropChange}
             outputFrame={outputFrame}
             sampledColors={sampledColors}
+            showGridPreview={showGridPreview}
           />
         </main>
       </div>

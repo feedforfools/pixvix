@@ -5,7 +5,7 @@ import {
   useCallback,
   useState,
 } from "react";
-import { Plus, Minus, RotateCcw, Maximize2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Minimize, Maximize } from "lucide-react";
 import { Button } from "./ui/button";
 import type {
   GridConfig,
@@ -31,6 +31,7 @@ interface PixelCanvasProps {
   onCropChange: (crop: CropRegion | null) => void;
   outputFrame: OutputFrame | null;
   sampledColors: (PixelColor | null)[][] | null;
+  showGridPreview?: boolean;
 }
 
 /** Zoom constraints */
@@ -62,6 +63,7 @@ export function PixelCanvas({
   onCropChange,
   outputFrame,
   sampledColors,
+  showGridPreview = false,
 }: PixelCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,7 +97,7 @@ export function PixelCanvas({
 
   // Determine what to show based on mode
   const showGrid = mode === "grid" || mode === "refine";
-  const showPreview = mode === "refine" || mode === "export";
+  const showPreview = mode === "refine" || mode === "export" || (mode === "grid" && showGridPreview);
   const allowPixelToggle = mode === "refine";
   const allowCropDrag = mode === "crop";
 
@@ -243,7 +245,7 @@ export function PixelCanvas({
     } else {
       displayCtx.drawImage(originalImage, 0, 0);
     }
-  }, [originalImage, gridConfig, showPreview, ignoredPixels, mode]);
+  }, [originalImage, gridConfig, showPreview, ignoredPixels, mode, showGridPreview]);
 
   // Draw overlay at screen resolution (grid, crop region, output frame)
   useEffect(() => {
@@ -877,7 +879,7 @@ export function PixelCanvas({
             onClick={handleZoomOut}
             title="Zoom out"
           >
-            <Minus className="h-4 w-4" />
+            <ZoomOut className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -886,7 +888,7 @@ export function PixelCanvas({
             onClick={handleZoomIn}
             title="Zoom in"
           >
-            <Plus className="h-4 w-4" />
+            <ZoomIn className="h-4 w-4" />
           </Button>
           <div className="w-px bg-border my-1" />
           <Button
@@ -896,7 +898,7 @@ export function PixelCanvas({
             onClick={handleCenter}
             title="Center image"
           >
-            <Maximize2 className="h-4 w-4" />
+            <Maximize className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -905,7 +907,7 @@ export function PixelCanvas({
             onClick={handleZoomReset}
             title="Reset zoom"
           >
-            <RotateCcw className="h-4 w-4" />
+            <Minimize className="h-4 w-4" />
           </Button>
         </div>
       )}

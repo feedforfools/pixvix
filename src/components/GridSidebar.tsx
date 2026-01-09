@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 import { Slider } from "./ui/slider";
 import { Label } from "./ui/label";
+import { Switch } from "./ui/switch";
 import type { Dimensions, GridConfig } from "../types";
 
 interface GridSidebarProps {
@@ -11,6 +12,8 @@ interface GridSidebarProps {
   gridConfig: GridConfig;
   onGridConfigChange: (config: Partial<GridConfig>) => void;
   gridDimensions: { cols: number; rows: number };
+  showPreview: boolean;
+  onShowPreviewChange: (show: boolean) => void;
   onBack: () => void;
   onNext: () => void;
 }
@@ -20,11 +23,16 @@ export function GridSidebar({
   gridConfig,
   onGridConfigChange,
   gridDimensions,
+  showPreview,
+  onShowPreviewChange,
   onBack,
   onNext,
 }: GridSidebarProps) {
   // Max grid size is half the smallest dimension (min 1)
-  const maxGridSize = Math.max(1, Math.floor(Math.min(dimensions.width, dimensions.height) / 2));
+  const maxGridSize = Math.max(
+    1,
+    Math.floor(Math.min(dimensions.width, dimensions.height) / 8)
+  );
 
   return (
     <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4 overflow-y-auto">
@@ -108,6 +116,18 @@ export function GridSidebar({
               onValueChange={([value]) =>
                 onGridConfigChange({ offsetY: value })
               }
+            />
+          </div>
+
+          <Separator />
+
+          {/* Preview Toggle */}
+          <div className="flex items-center justify-between">
+            <Label htmlFor="preview">Preview Result</Label>
+            <Switch
+              id="preview"
+              checked={showPreview}
+              onCheckedChange={onShowPreviewChange}
             />
           </div>
         </CardContent>
