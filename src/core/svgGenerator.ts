@@ -106,3 +106,105 @@ export function downloadSvg(svgContent: string, filename: string): void {
 
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Generate a PNG from sampled color data at a specified scale.
+ * Returns a data URL of the PNG image.
+ */
+export function generatePngDataUrl(
+  colors: (PixelColor | null)[][],
+  ignoredPixels: Set<string>,
+  outputFrame?: OutputFrame | null,
+  targetWidth?: number,
+  targetHeight?: number
+): string {
+  // Determine bounds
+  const startRow = outputFrame?.startRow ?? 0;
+  const endRow = outputFrame?.endRow ?? colors.length - 1;
+  const startCol = outputFrame?.startCol ?? 0;
+  const endCol = outputFrame?.endCol ?? (colors[0]?.length ?? 0) - 1;
+
+  // Calculate output dimensions (in pixels, 1:1 with grid cells)
+  const outputCols = endCol - startCol + 1;
+  const outputRows = endRow - startRow + 1;
+
+  // Use target dimensions if provided, otherwise use 1:1
+  const canvasWidth = targetWidth ?? outputCols;
+  const canvasHeight = targetHeight ?? outputRows;
+
+  // Calculate scale factor for each "pixel"
+  const pixelWidth = canvasWidth / outputCols;
+  const pixelHeight = canvasHeight / outputRows;
+
+  // Create canvas
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to create canvas context");
+  }
+
+  // Clear canvas (transparent background)
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+  // Draw each pixel as a scaled rectangle
+  for (let row = startRow; row <= endRow; row++) {
+    const rowColors = colors[row];
+    if (!rowColors) continue;
+
+    for (let col = startCol; col <= endCol; col++) {
+      const key = `${col}-${row}`;
+      const isIgnored = ignoredPixels.has(key);
+      const color = rowColors[col];
+
+      // Skip ignored, null, or fully transparent pixels
+      if (isIgnored || color === null || color.a === 0) continue;
+
+      // Calculate position in output canvas
+      const x = (col - startCol) * pixelWidth;
+      const y = (row - startRow) * pixelHeight;
+
+      // Set fill color with alpha
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${
+        color.a / 255
+      })`;
+      ctx.fillRect(
+        Math.floor(x),
+        Math.floor(y),
+        Math.ceil(pixelWidth),
+        Math.ceil(pixelHeight)
+      );
+    }
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * Download a PNG from sampled color data at a specified scale.
+ */
+export function downloadPng(
+  colors: (PixelColor | null)[][],
+  ignoredPixels: Set<string>,
+  filename: string,
+  outputFrame?: OutputFrame | null,
+  targetWidth?: number,
+  targetHeight?: number
+): void {
+  const dataUrl = generatePngDataUrl(
+    colors,
+    ignoredPixels,
+    outputFrame,
+    targetWidth,
+    targetHeight
+  );
+
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}

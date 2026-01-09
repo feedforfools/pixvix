@@ -11,7 +11,7 @@ import {
   getGridDimensions,
   getMinimalBoundingFrame,
 } from "../core/gridSampler";
-import { generateSvg, downloadSvg } from "../core/svgGenerator";
+import { generateSvg, downloadSvg, downloadPng } from "../core/svgGenerator";
 import type {
   GridConfig,
   WorkflowStep,
@@ -277,7 +277,7 @@ export function Layout() {
     }
   }, [originalImage, cropRegion]);
 
-  const handleExport = useCallback(() => {
+  const handleExportSvg = useCallback(() => {
     if (!workingImage) return;
 
     const canvas = workCanvasRef.current;
@@ -304,6 +304,22 @@ export function Layout() {
     );
     downloadSvg(svg, "pixvix-export.svg");
   }, [workingImage, gridConfig, ignoredPixels, outputFrame]);
+
+  const handleExportPng = useCallback(
+    (width: number, height: number) => {
+      if (!sampledColors) return;
+
+      downloadPng(
+        sampledColors,
+        ignoredPixels,
+        "pixvix-export.png",
+        outputFrame,
+        width,
+        height
+      );
+    },
+    [sampledColors, ignoredPixels, outputFrame]
+  );
 
   // Step navigation
   const handleStepClick = useCallback((step: WorkflowStep) => {
@@ -369,7 +385,8 @@ export function Layout() {
             outputFrame={outputFrame}
             ignoredCount={ignoredPixels.size}
             ignoredInFrame={ignoredInFrame}
-            onExport={handleExport}
+            onExportSvg={handleExportSvg}
+            onExportPng={handleExportPng}
             onBack={() => goToStep("refine")}
           />
         );

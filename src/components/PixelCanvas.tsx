@@ -410,7 +410,8 @@ export function PixelCanvas({
       }
     }
 
-    if (outputFrame) {
+    // Show yellow border in export mode (always) or when outputFrame is set
+    if (outputFrame || mode === "export") {
       const { cols, rows } = getGridDimensions(
         naturalWidth,
         naturalHeight,
