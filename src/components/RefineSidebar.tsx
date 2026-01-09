@@ -5,6 +5,7 @@ import {
   RotateCcw,
   MousePointer,
   Crop,
+  Info,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -42,34 +43,47 @@ export function RefineSidebar({
 
   return (
     <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4 overflow-y-auto">
-      {/* Info Section */}
+      {/* Summary Section */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Sparkles className="h-4 w-4" />
-            Pixel Art Summary
+            Refine Your Pixel Art
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Full grid:</span>
-            <span>
-              {gridDimensions.cols} × {gridDimensions.rows} px
-            </span>
+          <p className="text-sm text-muted-foreground">
+            Fine-tune your output by marking pixels as transparent and adjusting
+            the export frame.
+          </p>
+
+          {/* Dimensions Summary */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Full grid:</span>
+              <span className="font-mono">
+                {gridDimensions.cols} × {gridDimensions.rows} px
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Export size:</span>
+              <span
+                className={`font-mono ${
+                  outputFrame ? "text-yellow-500 font-medium" : ""
+                }`}
+              >
+                {outputCols} × {outputRows} px
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Export size:</span>
-            <span className={outputFrame ? "text-yellow-500 font-medium" : ""}>
-              {outputCols} × {outputRows} px
-            </span>
-          </div>
+
           {(outputFrame || ignoredCount > 0) && (
             <p className="text-xs text-muted-foreground italic">
-              {outputFrame && "Output frame is active. "}
+              {outputFrame && "Output frame active. "}
               {ignoredCount > 0 &&
                 `${ignoredCount} pixel${
                   ignoredCount !== 1 ? "s" : ""
-                } transparent.`}
+                } set to transparent.`}
             </p>
           )}
         </CardContent>
@@ -77,7 +91,7 @@ export function RefineSidebar({
 
       <Separator />
 
-      {/* Pixel Selection */}
+      {/* Transparent Pixels */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
@@ -87,16 +101,18 @@ export function RefineSidebar({
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Click or drag on pixels to toggle them as transparent. Transparent
-            pixels won't be drawn in the exported SVG.
+            Click or drag on pixels to toggle transparency. Transparent pixels
+            won't appear in the export.
           </p>
 
           {ignoredCount > 0 ? (
             <>
-              <p className="text-sm font-medium">
-                {ignoredCount} pixel{ignoredCount !== 1 ? "s" : ""} set
-                transparent
-              </p>
+              <div className="flex justify-between items-center text-sm">
+                <span>Transparent pixels:</span>
+                <span className="font-mono text-yellow-500">
+                  {ignoredCount}
+                </span>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -108,8 +124,8 @@ export function RefineSidebar({
               </Button>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground italic">
-              No pixels set as transparent
+            <p className="text-sm text-muted-foreground/70 italic">
+              No pixels marked as transparent
             </p>
           )}
         </CardContent>
@@ -127,8 +143,7 @@ export function RefineSidebar({
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Automatically crop the export area to exclude border transparent
-            pixels.
+            Automatically crop the export to exclude empty borders.
           </p>
 
           <Button
@@ -143,18 +158,17 @@ export function RefineSidebar({
 
           {outputFrame && (
             <>
-              <div className="text-sm bg-muted/50 rounded p-2 space-y-1">
+              <div className="text-sm bg-muted/50 rounded-lg p-3 space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Region:</span>
-                  <span>
-                    ({outputFrame.startCol}, {outputFrame.startRow}) → (
-                    {outputFrame.endCol}, {outputFrame.endRow})
+                  <span className="text-muted-foreground">Size:</span>
+                  <span className="font-mono">
+                    {outputCols} × {outputRows} px
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Size:</span>
-                  <span>
-                    {outputCols} × {outputRows} px
+                  <span className="text-muted-foreground">Offset:</span>
+                  <span className="font-mono">
+                    {outputFrame.startCol}, {outputFrame.startRow}
                   </span>
                 </div>
               </div>
@@ -172,6 +186,15 @@ export function RefineSidebar({
         </CardContent>
       </Card>
 
+      {/* Help hint */}
+      <div className="flex gap-2 text-xs text-muted-foreground px-1">
+        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+        <p>
+          Hold <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Shift</kbd>{" "}
+          and drag to pan. Scroll to zoom.
+        </p>
+      </div>
+
       {/* Spacer */}
       <div className="flex-1" />
 
@@ -182,7 +205,7 @@ export function RefineSidebar({
           Back
         </Button>
         <Button className="flex-1" onClick={onNext}>
-          Preview
+          Export
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>

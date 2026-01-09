@@ -36,7 +36,7 @@ export interface OutputFrame {
 }
 
 /** Workflow step identifiers */
-export type WorkflowStep = "crop" | "grid" | "refine" | "export";
+export type WorkflowStep = "upload" | "crop" | "grid" | "refine" | "export";
 
 /** Application state shape */
 export interface AppState {

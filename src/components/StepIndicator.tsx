@@ -1,4 +1,4 @@
-import { Check, Crop, Grid3X3, Sparkles, Download } from "lucide-react";
+import { Check, Upload, Crop, Grid3X3, Sparkles, Download } from "lucide-react";
 import { cn } from "../lib/utils";
 import type { WorkflowStep } from "../types";
 
@@ -9,6 +9,7 @@ interface StepInfo {
 }
 
 const STEPS: StepInfo[] = [
+  { id: "upload", label: "Upload", icon: Upload },
   { id: "crop", label: "Crop", icon: Crop },
   { id: "grid", label: "Grid", icon: Grid3X3 },
   { id: "refine", label: "Refine", icon: Sparkles },

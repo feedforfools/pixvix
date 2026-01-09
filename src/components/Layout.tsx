@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { StepIndicator } from "./StepIndicator";
+import { UploadSidebar } from "./UploadSidebar";
 import { CropSidebar } from "./CropSidebar";
 import { GridSidebar } from "./GridSidebar";
 import { RefineSidebar } from "./RefineSidebar";
@@ -27,7 +28,7 @@ export function Layout() {
     useImageLoader();
 
   // Workflow state
-  const [currentStep, setCurrentStep] = useState<WorkflowStep>("crop");
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>("upload");
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(
     new Set()
   );
@@ -179,7 +180,7 @@ export function Layout() {
       setOutputFrame(null);
       setShowGridPreview(false);
       setCompletedSteps(new Set());
-      setCurrentStep("crop");
+      // Stay on upload step - user will click Continue
       loadImage(file);
     },
     [loadImage]
@@ -339,16 +340,24 @@ export function Layout() {
   // Render sidebar based on current step
   const renderSidebar = () => {
     switch (currentStep) {
-      case "crop":
+      case "upload":
         return (
-          <CropSidebar
+          <UploadSidebar
             onImageLoad={handleImageLoad}
             isLoading={isLoading}
             error={error}
             dimensions={dimensions}
             hasImage={originalImage !== null}
+            onNext={() => goToStep("crop", "upload")}
+          />
+        );
+      case "crop":
+        return (
+          <CropSidebar
+            dimensions={dimensions}
             cropRegion={cropRegion}
             onResetCrop={handleResetCrop}
+            onBack={() => goToStep("upload")}
             onNext={applyCropAndContinue}
           />
         );
@@ -394,7 +403,10 @@ export function Layout() {
   };
 
   // Determine which image to show based on step
-  const canvasImage = currentStep === "crop" ? originalImage : workingImage;
+  const canvasImage =
+    currentStep === "upload" || currentStep === "crop"
+      ? originalImage
+      : workingImage;
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">

@@ -1,44 +1,23 @@
-import { useRef } from "react";
-import { Upload, Crop, Loader2, RotateCcw, ChevronRight } from "lucide-react";
+import { Crop, RotateCcw, ChevronRight, ChevronLeft, Info } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Separator } from "./ui/separator";
 import type { Dimensions, CropRegion } from "../types";
 
 interface CropSidebarProps {
-  onImageLoad: (file: File) => void;
-  isLoading: boolean;
-  error: string | null;
   dimensions: Dimensions;
-  hasImage: boolean;
   cropRegion: CropRegion | null;
   onResetCrop: () => void;
+  onBack: () => void;
   onNext: () => void;
 }
 
 export function CropSidebar({
-  onImageLoad,
-  isLoading,
-  error,
   dimensions,
-  hasImage,
   cropRegion,
   onResetCrop,
+  onBack,
   onNext,
 }: CropSidebarProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onImageLoad(file);
-    }
-  };
-
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
-
   const hasCrop = cropRegion !== null;
   const cropDimensions = cropRegion
     ? { width: cropRegion.width, height: cropRegion.height }
@@ -46,69 +25,41 @@ export function CropSidebar({
 
   return (
     <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4 overflow-y-auto">
-      {/* Upload Section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <Upload className="h-4 w-4" />
-            Upload Image
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleButtonClick}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              "Choose File"
-            )}
-          </Button>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          {hasImage && (
-            <p className="text-sm text-muted-foreground">
-              Original: {dimensions.width} × {dimensions.height} px
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Separator />
-
-      {/* Crop Section */}
+      {/* Main Crop Card */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Crop className="h-4 w-4" />
-            Crop Region
+            Crop Image
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            {hasImage
-              ? "Click and drag on the image to select a crop region, or skip to use the full image."
-              : "Upload an image first"}
+            Click and drag on the canvas to select a crop region, or skip to use
+            the full image.
           </p>
 
+          {/* Dimensions Info */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <span className="text-muted-foreground">Original:</span>
+            <span className="font-mono text-right">
+              {dimensions.width} × {dimensions.height}
+            </span>
+            {hasCrop && (
+              <>
+                <span className="text-muted-foreground">Cropped:</span>
+                <span className="font-mono text-right text-primary">
+                  {cropDimensions.width} × {cropDimensions.height}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Crop Status & Reset */}
           {hasCrop && (
-            <>
-              <p className="text-sm">
-                Cropped: {cropDimensions.width} × {cropDimensions.height} px
+            <div className="pt-2 border-t border-border space-y-3">
+              <p className="text-sm text-green-500 font-medium">
+                ✓ Crop region selected
               </p>
               <Button
                 variant="outline"
@@ -119,19 +70,34 @@ export function CropSidebar({
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset Crop
               </Button>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Help hint */}
+      <div className="flex gap-2 text-xs text-muted-foreground px-1">
+        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+        <p>
+          Hold <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Shift</kbd>{" "}
+          and drag to pan. Use scroll wheel to zoom.
+        </p>
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />
 
       {/* Navigation */}
-      <Button className="w-full" disabled={!hasImage} onClick={onNext}>
-        {hasCrop ? "Apply Crop & Continue" : "Skip Crop"}
-        <ChevronRight className="h-4 w-4 ml-2" />
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onBack}>
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+        <Button className="flex-1" onClick={onNext}>
+          {hasCrop ? "Apply Crop" : "Skip"}
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
     </aside>
   );
 }

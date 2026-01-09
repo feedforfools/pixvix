@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   Download,
   ChevronLeft,
@@ -8,9 +8,10 @@ import {
   FileCode,
   Grid3X3,
   Info,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Label } from "./ui/label";
 import type { OutputFrame } from "../types";
 
@@ -56,12 +57,18 @@ export function ExportSidebar({
     Math.round(defaultPngWidth / aspectRatio)
   );
 
-  // Update dimensions when output dimensions change
-  useEffect(() => {
+  // Track output dimensions to reset PNG size when they change
+  // This is the "adjusting state when a prop changes" pattern from React docs
+  const [lastOutputKey, setLastOutputKey] = useState(
+    `${outputCols}-${outputRows}`
+  );
+  const outputKey = `${outputCols}-${outputRows}`;
+  if (outputKey !== lastOutputKey) {
     const newWidth = Math.max(outputCols * 10, 100);
     setPngWidth(newWidth);
     setPngHeight(Math.round(newWidth / aspectRatio));
-  }, [outputCols, outputRows, aspectRatio]);
+    setLastOutputKey(outputKey);
+  }
 
   // Handle width change - maintain aspect ratio
   const handleWidthChange = useCallback(
@@ -98,6 +105,21 @@ export function ExportSidebar({
 
   return (
     <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4 overflow-y-auto">
+      {/* Header Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Sparkles className="h-4 w-4" />
+            Ready to Export
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Your pixel art is ready! Choose your preferred format below.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Output Summary */}
       <Card>
         <CardContent className="pt-4 space-y-3">
@@ -106,24 +128,26 @@ export function ExportSidebar({
             Output Summary
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <span className="text-muted-foreground">Dimensions:</span>
-            <span className="font-mono text-right">
-              {outputCols} × {outputRows}
-            </span>
+          <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Dimensions:</span>
+              <span className="font-mono">
+                {outputCols} × {outputRows} px
+              </span>
+            </div>
 
-            <span className="text-muted-foreground">Visible pixels:</span>
-            <span className="font-mono text-right text-green-500">
-              {visiblePixels}
-            </span>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Visible pixels:</span>
+              <span className="font-mono text-green-500">{visiblePixels}</span>
+            </div>
 
             {transparentInOutput > 0 && (
-              <>
+              <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Transparent:</span>
-                <span className="font-mono text-right text-yellow-500">
+                <span className="font-mono text-yellow-500">
                   {transparentInOutput}
                 </span>
-              </>
+              </div>
             )}
           </div>
 
@@ -139,12 +163,25 @@ export function ExportSidebar({
       <div className="flex gap-2 text-xs text-muted-foreground px-1">
         <Info className="h-4 w-4 shrink-0 mt-0.5" />
         <p>
-          The yellow border on the canvas shows the area that will be exported.
+          The yellow border on the canvas shows the exact area that will be
+          exported.
         </p>
       </div>
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Export Info */}
+      <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+        <p className="text-xs text-muted-foreground">
+          <strong className="text-foreground">SVG</strong> — Scalable vector,
+          perfect for web. Smallest file size.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          <strong className="text-foreground">PNG</strong> — Raster image with
+          custom dimensions. Great for sharing.
+        </p>
+      </div>
 
       {/* Export Section */}
       <div className="space-y-2">
