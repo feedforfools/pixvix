@@ -44,6 +44,8 @@ export function Sidebar({
     if (file) {
       onImageLoad(file);
     }
+    // Reset input value so the same file can be selected again after reset
+    e.target.value = "";
   };
 
   const handleButtonClick = () => {

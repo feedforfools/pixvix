@@ -4,11 +4,15 @@ export interface Point {
   y: number;
 }
 
+/** Sampling method for grid cells */
+export type SampleMode = "center" | "average";
+
 /** Grid configuration for pixel sampling */
 export interface GridConfig {
   gridSize: number;
   offsetX: number;
   offsetY: number;
+  sampleMode: SampleMode;
 }
 
 /** RGBA color representation */
@@ -53,3 +57,53 @@ export interface Dimensions {
   width: number;
   height: number;
 }
+
+/** Entry in the color palette */
+export interface PaletteEntry {
+  hexCode: string;
+  color: PixelColor;
+  count: number;
+}
+
+/** HSL color representation */
+export interface HSLColor {
+  h: number; // 0-360
+  s: number; // 0-100
+  l: number; // 0-100
+}
+
+/** Predefined color group identifiers */
+export type ColorGroupId =
+  | "reds"
+  | "oranges"
+  | "yellows"
+  | "greens"
+  | "cyans"
+  | "blues"
+  | "purples"
+  | "grays";
+
+/** A group of colors with shared hue range */
+export interface ColorGroup {
+  id: ColorGroupId;
+  name: string;
+  colors: PaletteEntry[];
+  /** Representative hue for the group (for display) */
+  representativeHue: number;
+}
+
+/** Adjustments to apply to a color group */
+export interface GroupAdjustment {
+  /** Hue rotation in degrees (-180 to 180) */
+  hueShift: number;
+  /** Saturation multiplier (0 to 2, where 1 = no change) */
+  saturationScale: number;
+  /** Lightness multiplier (0 to 2, where 1 = no change) */
+  lightnessScale: number;
+}
+
+/** Map of group adjustments (groupId → adjustment) */
+export type GroupAdjustments = Map<ColorGroupId, GroupAdjustment>;
+
+/** Map of color replacements (original hex → replacement color) - legacy */
+export type ColorReplacements = Map<string, PixelColor>;

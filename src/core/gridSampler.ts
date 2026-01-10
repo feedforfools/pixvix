@@ -1,4 +1,10 @@
-import type { Point, PixelColor, GridConfig } from "../types";
+import type {
+  Point,
+  PixelColor,
+  GridConfig,
+  OutputFrame,
+  PaletteEntry,
+} from "../types";
 
 /**
  * Calculate the center pixel coordinates of a grid cell.
@@ -13,6 +19,25 @@ export function getCellCenter(
     x: col * gridSize + offsetX + Math.floor(gridSize / 2),
     y: row * gridSize + offsetY + Math.floor(gridSize / 2),
   };
+}
+
+/**
+ * Calculate the bounds of a grid cell (top-left and clamped bottom-right).
+ */
+export function getCellBounds(
+  col: number,
+  row: number,
+  config: GridConfig,
+  imageWidth: number,
+  imageHeight: number
+): { x1: number; y1: number; x2: number; y2: number } {
+  const { gridSize, offsetX, offsetY } = config;
+  const x1 = col * gridSize + offsetX;
+  const y1 = row * gridSize + offsetY;
+  // Clamp to image bounds
+  const x2 = Math.min(x1 + gridSize, imageWidth);
+  const y2 = Math.min(y1 + gridSize, imageHeight);
+  return { x1, y1, x2, y2 };
 }
 
 /**
@@ -67,7 +92,58 @@ export function colorToHex(color: PixelColor): string {
 }
 
 /**
+ * Calculate the average color of all pixels within a grid cell.
+ * Returns null if the cell is entirely outside bounds or all pixels are transparent.
+ */
+export function getAverageColor(
+  imageData: ImageData,
+  col: number,
+  row: number,
+  config: GridConfig
+): PixelColor | null {
+  const { x1, y1, x2, y2 } = getCellBounds(
+    col,
+    row,
+    config,
+    imageData.width,
+    imageData.height
+  );
+
+  // Cell is outside image bounds
+  if (x1 >= imageData.width || y1 >= imageData.height || x2 <= x1 || y2 <= y1) {
+    return null;
+  }
+
+  let totalR = 0;
+  let totalG = 0;
+  let totalB = 0;
+  let totalA = 0;
+  let count = 0;
+
+  for (let y = y1; y < y2; y++) {
+    for (let x = x1; x < x2; x++) {
+      const index = (y * imageData.width + x) * 4;
+      totalR += imageData.data[index];
+      totalG += imageData.data[index + 1];
+      totalB += imageData.data[index + 2];
+      totalA += imageData.data[index + 3];
+      count++;
+    }
+  }
+
+  if (count === 0) return null;
+
+  return {
+    r: Math.round(totalR / count),
+    g: Math.round(totalG / count),
+    b: Math.round(totalB / count),
+    a: Math.round(totalA / count),
+  };
+}
+
+/**
  * Sample all grid cells and return a 2D array of colors.
+ * Uses center-pixel sampling by default, or average-color when sampleMode is "average".
  * Returns null for cells outside the image bounds.
  */
 export function sampleGrid(
@@ -80,13 +156,21 @@ export function sampleGrid(
     config
   );
 
+  const useAverage = config.sampleMode === "average";
   const result: (PixelColor | null)[][] = [];
 
   for (let row = 0; row < rows; row++) {
     const rowColors: (PixelColor | null)[] = [];
     for (let col = 0; col < cols; col++) {
-      const center = getCellCenter(col, row, config);
-      const color = getPixelColor(imageData, center.x, center.y);
+      const color = useAverage
+        ? getAverageColor(imageData, col, row, config)
+        : getPixelColor(
+            imageData,
+            ...(Object.values(getCellCenter(col, row, config)) as [
+              number,
+              number
+            ])
+          );
       rowColors.push(color);
     }
     result.push(rowColors);
@@ -160,4 +244,52 @@ export function getMinimalBoundingFrame(
     endCol: maxCol,
     endRow: maxRow,
   };
+}
+
+/**
+ * Extract unique colors from sampled grid and return a palette sorted by frequency.
+ * Respects outputFrame bounds if provided, and excludes ignored/transparent pixels.
+ */
+export function extractPalette(
+  colors: (PixelColor | null)[][],
+  ignoredPixels: Set<string>,
+  outputFrame?: OutputFrame | null
+): PaletteEntry[] {
+  const colorCounts = new Map<string, { color: PixelColor; count: number }>();
+
+  // Determine bounds
+  const startRow = outputFrame?.startRow ?? 0;
+  const endRow = outputFrame?.endRow ?? colors.length - 1;
+  const startCol = outputFrame?.startCol ?? 0;
+  const endCol = outputFrame?.endCol ?? (colors[0]?.length ?? 0) - 1;
+
+  for (let row = startRow; row <= endRow; row++) {
+    const rowColors = colors[row];
+    if (!rowColors) continue;
+
+    for (let col = startCol; col <= endCol; col++) {
+      const key = `${col}-${row}`;
+      if (ignoredPixels.has(key)) continue;
+
+      const color = rowColors[col];
+      if (!color || color.a === 0) continue;
+
+      const hexCode = colorToHex(color);
+      const existing = colorCounts.get(hexCode);
+      if (existing) {
+        existing.count++;
+      } else {
+        colorCounts.set(hexCode, { color, count: 1 });
+      }
+    }
+  }
+
+  // Convert to array and sort by frequency (most used first)
+  const palette: PaletteEntry[] = [];
+  for (const [hexCode, { color, count }] of colorCounts) {
+    palette.push({ hexCode, color, count });
+  }
+
+  palette.sort((a, b) => b.count - a.count);
+  return palette;
 }

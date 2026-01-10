@@ -1,5 +1,12 @@
 import { useRef } from "react";
-import { Upload, ImageIcon, Loader2, FileImage, Sparkles } from "lucide-react";
+import {
+  Upload,
+  ImageIcon,
+  Loader2,
+  FileImage,
+  Sparkles,
+  Info,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import type { Dimensions } from "../types";
@@ -28,6 +35,8 @@ export function UploadSidebar({
     if (file) {
       onImageLoad(file);
     }
+    // Reset input value so the same file can be selected again after reset
+    e.target.value = "";
   };
 
   const handleButtonClick = () => {
@@ -128,27 +137,14 @@ export function UploadSidebar({
       )}
 
       {/* Tips Section */}
-      <Card className="bg-muted/30">
-        <CardContent className="pt-4 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Tips
-          </p>
-          <ul className="text-xs text-muted-foreground space-y-1.5">
-            <li className="flex gap-2">
-              <span className="text-primary">•</span>
-              <span>Works best with pixel art or low-res images</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-primary">•</span>
-              <span>Supports PNG, JPG, GIF, and WebP formats</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="text-primary">•</span>
-              <span>Transparent pixels are preserved in export</span>
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="flex gap-2 text-xs text-muted-foreground px-1">
+        <Info className="h-4 w-4 shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p>Works best with pixel art or low-res images.</p>
+          <p>Supports PNG, JPG, GIF, and WebP formats.</p>
+          <p>Transparent pixels are preserved in export.</p>
+        </div>
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />

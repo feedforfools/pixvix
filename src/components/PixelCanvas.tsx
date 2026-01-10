@@ -13,13 +13,10 @@ import type {
   OutputFrame,
   WorkflowStep,
   PixelColor,
+  GroupAdjustments,
 } from "../types";
-import {
-  getGridDimensions,
-  getCellCenter,
-  getPixelColor,
-  colorToRgba,
-} from "../core/gridSampler";
+import { getGridDimensions, colorToRgba } from "../core/gridSampler";
+import { getAdjustedColor } from "../core/colorGroups";
 
 interface PixelCanvasProps {
   originalImage: HTMLImageElement | null;
@@ -30,8 +27,10 @@ interface PixelCanvasProps {
   cropRegion: CropRegion | null;
   onCropChange: (crop: CropRegion | null) => void;
   outputFrame: OutputFrame | null;
+  onOutputFrameChange?: (frame: OutputFrame | null) => void;
   sampledColors: (PixelColor | null)[][] | null;
   showGridPreview?: boolean;
+  groupAdjustments?: GroupAdjustments;
 }
 
 /** Zoom constraints */
@@ -62,8 +61,10 @@ export function PixelCanvas({
   cropRegion,
   onCropChange,
   outputFrame,
+  onOutputFrameChange,
   sampledColors,
   showGridPreview = false,
+  groupAdjustments,
 }: PixelCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,13 +97,14 @@ export function PixelCanvas({
   const toggledPixelsRef = useRef<Set<string>>(new Set());
 
   // Determine what to show based on mode
-  const showGrid = mode === "grid" || mode === "refine";
   const showPreview =
     mode === "refine" ||
     mode === "export" ||
     (mode === "grid" && showGridPreview);
+  const showGrid = (mode === "grid" && !showGridPreview) || mode === "refine";
   const allowPixelToggle = mode === "refine";
   const allowCropDrag = mode === "crop";
+  const allowOutputFrameDrag = mode === "export";
 
   // Prevent browser zoom/pan gestures on the container
   useEffect(() => {
@@ -211,15 +213,12 @@ export function PixelCanvas({
     sourceCanvas.height = naturalHeight;
     sourceCtx.drawImage(originalImage, 0, 0);
 
-    // Get image data from source canvas for sampling
-    const imageData = sourceCtx.getImageData(0, 0, naturalWidth, naturalHeight);
-
     // Set display canvas to original size
     displayCanvas.width = naturalWidth;
     displayCanvas.height = naturalHeight;
 
     if (showPreview) {
-      // Draw sampled preview - fill each grid cell with center pixel color
+      // Draw sampled preview - fill each grid cell with sampled color
       const { cols, rows } = getGridDimensions(
         naturalWidth,
         naturalHeight,
@@ -231,10 +230,15 @@ export function PixelCanvas({
           const key = getCellKey(col, row);
           if (ignoredPixels.has(key)) continue;
 
-          const center = getCellCenter(col, row, gridConfig);
-          const color = getPixelColor(imageData, center.x, center.y);
+          // Use pre-computed sampledColors (respects sampleMode)
+          let color = sampledColors?.[row]?.[col] ?? null;
 
-          if (color) {
+          if (color && color.a > 0) {
+            // Apply group adjustments if available
+            if (groupAdjustments && groupAdjustments.size > 0) {
+              color = getAdjustedColor(color, groupAdjustments);
+            }
+
             displayCtx.fillStyle = colorToRgba(color);
             displayCtx.fillRect(
               col * gridSize + offsetX,
@@ -255,6 +259,8 @@ export function PixelCanvas({
     ignoredPixels,
     mode,
     showGridPreview,
+    groupAdjustments,
+    sampledColors,
   ]);
 
   // Draw overlay at screen resolution (grid, crop region, output frame)
@@ -478,6 +484,8 @@ export function PixelCanvas({
     isDragging,
     dragStart,
     dragCurrent,
+    sampledColors,
+    ignoredPixels,
   ]);
 
   // Zoom handlers
@@ -608,6 +616,17 @@ export function PixelCanvas({
         return;
       }
 
+      // Left click for output frame drag in export mode
+      if (e.button === 0 && allowOutputFrameDrag) {
+        const rect = container.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        setIsDragging(true);
+        setDragStart({ x: screenX, y: screenY });
+        setDragCurrent({ x: screenX, y: screenY });
+        return;
+      }
+
       // Left click for pixel toggle drag in refine mode
       if (e.button === 0 && allowPixelToggle) {
         const rect = container.getBoundingClientRect();
@@ -642,6 +661,7 @@ export function PixelCanvas({
       originalImage,
       panOffset,
       allowCropDrag,
+      allowOutputFrameDrag,
       allowPixelToggle,
       screenToGridCell,
       ignoredPixels,
@@ -763,6 +783,42 @@ export function PixelCanvas({
       if (width > 5 && height > 5) {
         if (allowCropDrag) {
           onCropChange({ x: imgX1, y: imgY1, width, height });
+        } else if (allowOutputFrameDrag && onOutputFrameChange) {
+          // Convert image coordinates to grid cell coordinates
+          const { gridSize, offsetX, offsetY } = gridConfig;
+          const { cols, rows } = getGridDimensions(
+            naturalWidth,
+            naturalHeight,
+            gridConfig
+          );
+
+          // Calculate grid cells that overlap with the selected region
+          const startCol = Math.max(
+            0,
+            Math.floor((imgX1 - offsetX) / gridSize)
+          );
+          const startRow = Math.max(
+            0,
+            Math.floor((imgY1 - offsetY) / gridSize)
+          );
+          const endCol = Math.min(
+            cols - 1,
+            Math.floor((imgX2 - offsetX - 1) / gridSize)
+          );
+          const endRow = Math.min(
+            rows - 1,
+            Math.floor((imgY2 - offsetY - 1) / gridSize)
+          );
+
+          // Only set if valid selection
+          if (endCol >= startCol && endRow >= startRow) {
+            onOutputFrameChange({
+              startCol,
+              startRow,
+              endCol,
+              endRow,
+            });
+          }
         }
       }
 
@@ -777,12 +833,14 @@ export function PixelCanvas({
     dragStart,
     dragCurrent,
     originalImage,
-
+    gridConfig,
     containerSize,
     panOffset,
     zoom,
     allowCropDrag,
     onCropChange,
+    allowOutputFrameDrag,
+    onOutputFrameChange,
   ]);
 
   // Canvas click is now handled by mouseDown/mouseUp for drag support
@@ -814,7 +872,8 @@ export function PixelCanvas({
         backgroundColor: "#303030",
         cursor: isPanning
           ? "grabbing"
-          : originalImage
+          : originalImage &&
+            (allowCropDrag || allowPixelToggle || allowOutputFrameDrag)
           ? "crosshair"
           : "default",
         // Prevent browser touch gestures (pinch zoom, pan)
@@ -835,7 +894,6 @@ export function PixelCanvas({
         {originalImage ? (
           <canvas
             ref={displayCanvasRef}
-            className="cursor-crosshair"
             style={{
               imageRendering: "pixelated",
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,

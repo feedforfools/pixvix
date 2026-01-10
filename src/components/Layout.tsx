@@ -11,6 +11,7 @@ import {
   sampleGrid,
   getGridDimensions,
   getMinimalBoundingFrame,
+  extractPalette,
 } from "../core/gridSampler";
 import { generateSvg, downloadSvg, downloadPng } from "../core/svgGenerator";
 import type {
@@ -18,13 +19,16 @@ import type {
   WorkflowStep,
   CropRegion,
   OutputFrame,
+  ColorGroupId,
+  GroupAdjustment,
+  GroupAdjustments,
   PixelColor,
 } from "../types";
 
 const DEFAULT_GRID_SIZE = 8;
 
 export function Layout() {
-  const { originalImage, dimensions, isLoading, error, loadImage } =
+  const { originalImage, dimensions, isLoading, error, loadImage, clearImage } =
     useImageLoader();
 
   // Workflow state
@@ -44,11 +48,17 @@ export function Layout() {
     gridSize: DEFAULT_GRID_SIZE,
     offsetX: 0,
     offsetY: 0,
+    sampleMode: "center",
   });
 
   // Refine state
   const [ignoredPixels, setIgnoredPixels] = useState<Set<string>>(new Set());
   const [outputFrame, setOutputFrame] = useState<OutputFrame | null>(null);
+
+  // Color group adjustments state
+  const [groupAdjustments, setGroupAdjustments] = useState<GroupAdjustments>(
+    new Map()
+  );
 
   // Grid preview state
   const [showGridPreview, setShowGridPreview] = useState(false);
@@ -140,6 +150,12 @@ export function Layout() {
     return count;
   })();
 
+  // Extract color palette from sampled colors
+  const palette = useMemo(() => {
+    if (!sampledColors) return [];
+    return extractPalette(sampledColors, ignoredPixels, outputFrame);
+  }, [sampledColors, ignoredPixels, outputFrame]);
+
   // Handlers
   const handleGridConfigChange = useCallback((partial: Partial<GridConfig>) => {
     setGridConfig((prev) => {
@@ -175,9 +191,11 @@ export function Layout() {
         gridSize: DEFAULT_GRID_SIZE,
         offsetX: 0,
         offsetY: 0,
+        sampleMode: "center",
       });
       setIgnoredPixels(new Set());
       setOutputFrame(null);
+      setGroupAdjustments(new Map());
       setShowGridPreview(false);
       setCompletedSteps(new Set());
       // Stay on upload step - user will click Continue
@@ -185,6 +203,24 @@ export function Layout() {
     },
     [loadImage]
   );
+
+  const handleReset = useCallback(() => {
+    clearImage();
+    setCropRegion(null);
+    setCroppedImage(null);
+    setGridConfig({
+      gridSize: DEFAULT_GRID_SIZE,
+      offsetX: 0,
+      offsetY: 0,
+      sampleMode: "center",
+    });
+    setIgnoredPixels(new Set());
+    setOutputFrame(null);
+    setGroupAdjustments(new Map());
+    setShowGridPreview(false);
+    setCompletedSteps(new Set());
+    setCurrentStep("upload");
+  }, [clearImage]);
 
   const handleResetCrop = useCallback(() => {
     setCropRegion(null);
@@ -200,6 +236,25 @@ export function Layout() {
 
   const handleResetOutputFrame = useCallback(() => {
     setOutputFrame(null);
+  }, []);
+
+  const handleGroupAdjustmentChange = useCallback(
+    (groupId: ColorGroupId, adjustment: GroupAdjustment | null) => {
+      setGroupAdjustments((prev) => {
+        const next = new Map(prev);
+        if (adjustment === null) {
+          next.delete(groupId);
+        } else {
+          next.set(groupId, adjustment);
+        }
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleClearAllAdjustments = useCallback(() => {
+    setGroupAdjustments(new Map());
   }, []);
 
   const handleAutoFitFrame = useCallback(() => {
@@ -301,10 +356,11 @@ export function Layout() {
       naturalWidth,
       naturalHeight,
       ignoredPixels,
-      outputFrame
+      outputFrame,
+      groupAdjustments
     );
     downloadSvg(svg, "pixvix-export.svg");
-  }, [workingImage, gridConfig, ignoredPixels, outputFrame]);
+  }, [workingImage, gridConfig, ignoredPixels, outputFrame, groupAdjustments]);
 
   const handleExportPng = useCallback(
     (width: number, height: number) => {
@@ -316,10 +372,11 @@ export function Layout() {
         "pixvix-export.png",
         outputFrame,
         width,
-        height
+        height,
+        groupAdjustments
       );
     },
-    [sampledColors, ignoredPixels, outputFrame]
+    [sampledColors, ignoredPixels, outputFrame, groupAdjustments]
   );
 
   // Step navigation
@@ -379,12 +436,13 @@ export function Layout() {
           <RefineSidebar
             gridDimensions={gridDimensions}
             ignoredCount={totalTransparentCount}
-            outputFrame={outputFrame}
-            onAutoFitFrame={handleAutoFitFrame}
             onClearIgnored={handleClearIgnored}
-            onResetOutputFrame={handleResetOutputFrame}
             onBack={() => goToStep("grid")}
             onNext={() => goToStep("export", "refine")}
+            palette={palette}
+            groupAdjustments={groupAdjustments}
+            onGroupAdjustmentChange={handleGroupAdjustmentChange}
+            onClearAllAdjustments={handleClearAllAdjustments}
           />
         );
       case "export":
@@ -397,6 +455,8 @@ export function Layout() {
             onExportSvg={handleExportSvg}
             onExportPng={handleExportPng}
             onBack={() => goToStep("refine")}
+            onAutoFitFrame={handleAutoFitFrame}
+            onResetOutputFrame={handleResetOutputFrame}
           />
         );
     }
@@ -419,6 +479,8 @@ export function Layout() {
         onStepClick={handleStepClick}
         completedSteps={completedSteps}
         disabled={!originalImage}
+        onReset={handleReset}
+        hasImage={originalImage !== null}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -436,8 +498,10 @@ export function Layout() {
             cropRegion={cropRegion}
             onCropChange={handleCropChange}
             outputFrame={outputFrame}
+            onOutputFrameChange={setOutputFrame}
             sampledColors={sampledColors}
             showGridPreview={showGridPreview}
+            groupAdjustments={groupAdjustments}
           />
         </main>
       </div>

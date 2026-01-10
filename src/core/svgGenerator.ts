@@ -1,5 +1,11 @@
-import type { PixelColor, GridConfig, OutputFrame } from "../types";
+import type {
+  PixelColor,
+  GridConfig,
+  OutputFrame,
+  GroupAdjustments,
+} from "../types";
 import { colorToHex } from "./gridSampler";
+import { getAdjustedColor } from "./colorGroups";
 
 interface SvgRect {
   x: number;
@@ -7,6 +13,20 @@ interface SvgRect {
   width: number;
   height: number;
   color: string;
+}
+
+/**
+ * Get the effective color after applying group adjustments.
+ */
+function getEffectiveColor(
+  color: PixelColor,
+  groupAdjustments?: GroupAdjustments
+): string {
+  if (groupAdjustments && groupAdjustments.size > 0) {
+    const adjusted = getAdjustedColor(color, groupAdjustments);
+    return colorToHex(adjusted);
+  }
+  return colorToHex(color);
 }
 
 /**
@@ -19,7 +39,8 @@ export function generateSvg(
   _imageWidth: number,
   _imageHeight: number,
   ignoredPixels: Set<string>,
-  outputFrame?: OutputFrame | null
+  outputFrame?: OutputFrame | null,
+  groupAdjustments?: GroupAdjustments
 ): string {
   const { gridSize } = gridConfig;
   const rects: SvgRect[] = [];
@@ -49,7 +70,10 @@ export function generateSvg(
       const color = col <= endCol && !isIgnored ? rowColors[col] : null;
       // Treat fully transparent pixels as ignored (alpha = 0 means originally transparent)
       const isTransparent = color !== null && color.a === 0;
-      const hexColor = color && !isTransparent ? colorToHex(color) : null;
+      const hexColor =
+        color && !isTransparent
+          ? getEffectiveColor(color, groupAdjustments)
+          : null;
 
       // Check if we should end the current run
       if (hexColor !== runColor) {
@@ -116,7 +140,8 @@ export function generatePngDataUrl(
   ignoredPixels: Set<string>,
   outputFrame?: OutputFrame | null,
   targetWidth?: number,
-  targetHeight?: number
+  targetHeight?: number,
+  groupAdjustments?: GroupAdjustments
 ): string {
   // Determine bounds
   const startRow = outputFrame?.startRow ?? 0;
@@ -157,10 +182,15 @@ export function generatePngDataUrl(
     for (let col = startCol; col <= endCol; col++) {
       const key = `${col}-${row}`;
       const isIgnored = ignoredPixels.has(key);
-      const color = rowColors[col];
+      let color = rowColors[col];
 
       // Skip ignored, null, or fully transparent pixels
       if (isIgnored || color === null || color.a === 0) continue;
+
+      // Apply group adjustments if available
+      if (groupAdjustments && groupAdjustments.size > 0) {
+        color = getAdjustedColor(color, groupAdjustments);
+      }
 
       // Calculate position in output canvas
       const x = (col - startCol) * pixelWidth;
@@ -191,14 +221,16 @@ export function downloadPng(
   filename: string,
   outputFrame?: OutputFrame | null,
   targetWidth?: number,
-  targetHeight?: number
+  targetHeight?: number,
+  groupAdjustments?: GroupAdjustments
 ): void {
   const dataUrl = generatePngDataUrl(
     colors,
     ignoredPixels,
     outputFrame,
     targetWidth,
-    targetHeight
+    targetHeight,
+    groupAdjustments
   );
 
   const link = document.createElement("a");

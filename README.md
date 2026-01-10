@@ -6,7 +6,7 @@ A browser-based pixel art to SVG converter. No server uploads—everything runs 
 
 ### Run Locally
 ```bash
-git clone https://github.com/YOUR_USERNAME/pixvix.git
+git clone https://github.com/feedforfools/pixvix.git
 cd pixvix
 npm install
 npm run dev
@@ -16,8 +16,8 @@ npm run dev
 
 1. **Upload** — Drop or select a pixel art image (PNG recommended)
 2. **Crop** *(optional)* — Select a region to process
-3. **Grid** — Adjust grid size and offset to align with pixel boundaries
-4. **Refine** — Click pixels to mark as transparent, set output bounds
+3. **Grid** — Adjust grid size, offset, and sampling method
+4. **Refine** — Mark pixels as transparent, adjust output bounds, edit colors
 5. **Export** — Download the generated SVG or PNG
 
 ## 🛠 Development
@@ -37,6 +37,7 @@ npm run test:watch   # Run tests in watch mode
 src/
   components/    # React UI components
     ui/          # shadcn primitives (don't modify)
+    ColorPalette.tsx  # Color palette viewer/editor
   core/          # Pure functions — NO React, NO side effects
     gridSampler.ts       # Grid math and pixel sampling
     gridSampler.test.ts  # Tests for grid sampling
@@ -52,8 +53,8 @@ src/
 
 Tests are written with [Vitest](https://vitest.dev/) and focus on the core algorithms:
 
-- **Grid sampling** — Cell center calculation, grid dimensions, pixel color extraction
-- **SVG generation** — Row merging, transparency handling, output frame bounds
+- **Grid sampling** — Cell center calculation, grid dimensions, pixel color extraction, average color sampling, palette extraction
+- **SVG generation** — Row merging, transparency handling, output frame bounds, color replacements
 - **File helpers** — Image file validation
 
 Tests run automatically before deployment via GitHub Actions. Any test failure will block the deploy.

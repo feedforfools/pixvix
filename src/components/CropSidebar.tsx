@@ -94,7 +94,7 @@ export function CropSidebar({
           Back
         </Button>
         <Button className="flex-1" onClick={onNext}>
-          {hasCrop ? "Apply Crop" : "Skip"}
+          {hasCrop ? "Continue" : "Skip"}
           <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>

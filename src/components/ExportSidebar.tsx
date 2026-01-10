@@ -6,13 +6,15 @@ import {
   ChevronDown,
   Image,
   FileCode,
-  Grid3X3,
   Info,
   Sparkles,
+  Crop,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Label } from "./ui/label";
+import { Separator } from "./ui/separator";
 import type { OutputFrame } from "../types";
 
 interface ExportSidebarProps {
@@ -23,6 +25,8 @@ interface ExportSidebarProps {
   onExportSvg: () => void;
   onExportPng: (width: number, height: number) => void;
   onBack: () => void;
+  onAutoFitFrame: () => void;
+  onResetOutputFrame: () => void;
 }
 
 export function ExportSidebar({
@@ -33,6 +37,8 @@ export function ExportSidebar({
   onExportSvg,
   onExportPng,
   onBack,
+  onAutoFitFrame,
+  onResetOutputFrame,
 }: ExportSidebarProps) {
   // Calculate final output dimensions
   const outputCols = outputFrame
@@ -42,9 +48,7 @@ export function ExportSidebar({
     ? outputFrame.endRow - outputFrame.startRow + 1
     : gridDimensions.rows;
 
-  const totalPixels = outputCols * outputRows;
   const transparentInOutput = outputFrame ? ignoredInFrame : ignoredCount;
-  const visiblePixels = totalPixels - transparentInOutput;
 
   // PNG export panel state
   const [showPngOptions, setShowPngOptions] = useState(false);
@@ -104,7 +108,7 @@ export function ExportSidebar({
   const currentScale = pngWidth / outputCols;
 
   return (
-    <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4 overflow-y-auto">
+    <aside className="w-72 h-full bg-card border-r border-border p-4 flex flex-col gap-4">
       {/* Header Section */}
       <Card>
         <CardHeader className="pb-3">
@@ -115,57 +119,85 @@ export function ExportSidebar({
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Your pixel art is ready! Choose your preferred format below.
+            Adjust the export frame and choose your preferred format.
           </p>
         </CardContent>
       </Card>
 
-      {/* Output Summary */}
-      <Card>
-        <CardContent className="pt-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Grid3X3 className="h-4 w-4" />
-            Output Summary
-          </div>
+      <Separator />
 
+      {/* Output Frame */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm font-medium">
+            <Crop className="h-4 w-4" />
+            Output Frame
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
           <div className="bg-muted/50 rounded-lg p-3 space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Dimensions:</span>
-              <span className="font-mono">
+              <span className="text-muted-foreground">Export size:</span>
+              <span
+                className={`font-mono ${outputFrame ? "text-yellow-500" : ""}`}
+              >
                 {outputCols} × {outputRows} px
               </span>
             </div>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Visible pixels:</span>
-              <span className="font-mono text-green-500">{visiblePixels}</span>
-            </div>
-
+            {outputFrame && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Offset:</span>
+                <span className="font-mono">
+                  {outputFrame.startCol}, {outputFrame.startRow}
+                </span>
+              </div>
+            )}
             {transparentInOutput > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Transparent:</span>
                 <span className="font-mono text-yellow-500">
-                  {transparentInOutput}
+                  {transparentInOutput} px
                 </span>
               </div>
             )}
           </div>
 
-          {outputFrame && (
-            <p className="text-xs text-amber-500 italic">
-              Cropped by output frame
-            </p>
-          )}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={onAutoFitFrame}
+            >
+              <Crop className="h-4 w-4 mr-1" />
+              Auto-fit
+            </Button>
+            {outputFrame && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={onResetOutputFrame}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reset
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Auto-fit crops to exclude transparent borders.
+          </p>
         </CardContent>
       </Card>
 
       {/* Info hint */}
       <div className="flex gap-2 text-xs text-muted-foreground px-1">
         <Info className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>
-          The yellow border on the canvas shows the exact area that will be
-          exported.
-        </p>
+        <div className="space-y-1">
+          <p>Drag on the canvas to select a custom export area.</p>
+          <p>The yellow border shows what will be exported.</p>
+        </div>
       </div>
 
       {/* Spacer */}

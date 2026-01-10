@@ -5,6 +5,8 @@ import {
   Info,
   Eye,
   Sliders,
+  Crosshair,
+  Blend,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -149,6 +151,42 @@ export function GridSidebar({
             />
             <p className="text-xs text-muted-foreground">
               Shift the grid to align with your artwork
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Sample Mode */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Sampling Method</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => onGridConfigChange({ sampleMode: "center" })}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-colors ${
+                  gridConfig.sampleMode === "center"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <Crosshair className="h-5 w-5" />
+                <span className="text-xs font-medium">Center</span>
+              </button>
+              <button
+                onClick={() => onGridConfigChange({ sampleMode: "average" })}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-colors ${
+                  gridConfig.sampleMode === "average"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-muted-foreground/50"
+                }`}
+              >
+                <Blend className="h-5 w-5" />
+                <span className="text-xs font-medium">Average</span>
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {gridConfig.sampleMode === "center"
+                ? "Samples the center pixel of each cell. Best for pixel art."
+                : "Averages all pixels in each cell. Best for photos."}
             </p>
           </div>
         </CardContent>
