@@ -1,11 +1,36 @@
 {
   "name": "pixvix",
-  "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Pixel art to SVG converter - A browser-based tool to convert pixel art images to optimized SVG files",
   "type": "module",
+  "main": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/lib/index.js",
+      "types": "./dist/lib/index.d.ts"
+    },
+    "./styles": "./dist/lib/style.css"
+  },
+  "files": [
+    "dist/lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_USERNAME/pixvix.git"
+  },
+  "keywords": [
+    "pixel-art",
+    "svg",
+    "converter",
+    "react",
+    "image-processing"
+  ],
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lib": "tsc -p tsconfig.lib.json && vite build --config vite.lib.config.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
@@ -22,8 +47,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18"
   },
@@ -42,6 +67,11 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
+    "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   }
 }

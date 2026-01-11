@@ -2,6 +2,26 @@
 
 A browser-based pixel art to SVG converter. No server uploads—everything runs locally in your browser.
 
+## 📦 Use as a Library
+
+Pixvix can be used as a standalone app or embedded in another project as a package.
+
+```bash
+# Install from GitHub
+npm install github:feedforfools/pixvix
+```
+
+```tsx
+import { Layout } from 'pixvix';
+import 'pixvix/styles';
+
+function App() {
+  return <Layout />;
+}
+```
+
+The UI is fully themeable via CSS variables.
+
 ## 🚀 Quick Start
 
 ### Run Locally
@@ -25,7 +45,8 @@ npm run dev
 ```bash
 npm install          # Install dependencies
 npm run dev          # Start dev server at localhost:5173
-npm run build        # Production build
+npm run build        # Production build (GitHub Pages)
+npm run build:lib    # Build as library package
 npm run lint         # ESLint check
 npm test             # Run tests once
 npm run test:watch   # Run tests in watch mode
@@ -35,16 +56,14 @@ npm run test:watch   # Run tests in watch mode
 
 ```
 src/
+  index.ts       # Library entry point (exports for package usage)
   components/    # React UI components
     ui/          # shadcn primitives (don't modify)
-    ColorPalette.tsx  # Color palette viewer/editor
   core/          # Pure functions — NO React, NO side effects
     gridSampler.ts       # Grid math and pixel sampling
-    gridSampler.test.ts  # Tests for grid sampling
     svgGenerator.ts      # SVG/PNG generation with row-merge optimization
-    svgGenerator.test.ts # Tests for SVG generation
+    colorGroups.ts       # Color grouping and HSL adjustments
     fileHelpers.ts       # File reading utilities
-    fileHelpers.test.ts  # Tests for file helpers
   hooks/         # React hooks for state management
   types/         # TypeScript interfaces
 ```
